@@ -3,6 +3,7 @@ import isodate
 
 from dotenv import load_dotenv
 from googleapiclient.discovery import  build
+from pymongo import MongoClient
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
@@ -15,42 +16,63 @@ def requestYoutube():
     )
     return youtube
 
-def getListVideo():
-    list_id = []
-    youtube = requestYoutube()
-    request = youtube.search().list(
-        q='english padcast',
-        part='snippet',
-        type='video',
-        maxResults=3
-    )
-    response = request.execute()
-    for i in response['items']:
-        video_id = i['id']['videoId']
-        list_id.append(video_id)
-    return list_id
+def convertDuration(ISO):
+    if not ISO:
+        return False,0
+    parse_duration=str(isodate.parse_duration(ISO))
+    parts = parse_duration.split(":")
+    minutes = int(parts[1])
+    return minutes<=10 and minutes>=5,minutes
 
+def CollectionMovie():
+    client = MongoClient("mongodb://localhost:27017")
+    db = client['speech_shadowing']
+    return db['Video']
     
 def getDetailMovie():
     youtube = requestYoutube()           
-    lists_of_video = getListVideo()     
-    ids_string = ",".join(lists_of_video)
-    request = youtube.videos().list(
-       part='contentDetails',      
-       id=ids_string
-    )
-    response = request.execute()
-    print(response)
+    next_page_token = None
+    saved_count = 0
+    collection = CollectionMovie()
     
-# get_detail_movie()
+    while saved_count <= 10:
+        request = youtube.video().list(
+            q='english podcast',
+            part='snippet',
+            type='video',
+            maxResults=10,
+            pageToken = next_page_token)
+        response = request.execute()
+        # print(response)
+        for i in response['items']:
+            video_id = i['id']['videoId']
+            video_title = i['snippet']['title']
+            detail_req = youtube.videos().list(
+                part='contentDetails',      
+                id=video_id
+            )
+            detail_res  = detail_req.execute()
+            for i in detail_res['items']:
+                ISO_Duration=i['contentDetails']['duration']
+                time_accept,minutes=convertDuration(ISO_Duration)
+                print(time_accept)
+                if time_accept:
+                    if collection.find_one({"video_id":video_id}):
+                        continue
+                    collection.insert_one({
+                        "video_id":video_id,
+                        "video_title":video_title,
+                        "duration":minutes
+                    })
+                    saved_count+=1
+            next_page_token = response.get("nextPageToken")
+            if not next_page_token:
+                break        
+getDetailMovie()
 
-def convertDuration(ISO):
-    if ISO:
-        parse_duration=str(isodate.parse_duration(ISO))
-        parts = parse_duration.split(":")
-        minutes = int(parts[1])
-        if minutes<=10:
-            pass 
+
+
+    
         
 
 
