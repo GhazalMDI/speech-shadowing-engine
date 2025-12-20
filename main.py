@@ -7,9 +7,9 @@ import time
 from dotenv import load_dotenv
 from googleapiclient.discovery import  build
 from pymongo import MongoClient
-# نباید الان تو دیتابیس ذخیره شه باید صداش فقط حذف شه
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
+MONGO_IP = os.getenv("MONGO_IP")
 
 def requestYoutube():
     youtube = build(
@@ -21,7 +21,6 @@ def requestYoutube():
 def downloadAudio(video_id):
     url = f'https://www.youtube.com/watch?v={video_id}'
     output_path = f'audio/{video_id}.mp3'
-    
     ydl_opts = {
         'format':'bestaudio/best',
         'outtmpl':f'audio/{video_id}.%(ext)s',
@@ -31,17 +30,23 @@ def downloadAudio(video_id):
             'preferredquality': '192',
         }],
         'quiet':True,
-        'js': True 
+        'sleep_interval': 5,
+        'max_sleep_interval': 10,
+        'noplaylist': True,     
+        'cookies': 'cookies.txt'
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(
-            url,
-            download=True
-        )
-        ydl.prepare_filename(info)
-    return output_path
-        
-        
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                url,
+                download=True
+            )
+            time.sleep(random.randint(4, 7))
+            ydl.prepare_filename(info)
+        return output_path
+    except Exception as e:
+        print(e)
+        return None
         
 def convertDuration(ISO):
     if not ISO:
@@ -49,10 +54,10 @@ def convertDuration(ISO):
     parse_duration=str(isodate.parse_duration(ISO))
     parts = parse_duration.split(":")
     minutes = int(parts[1])
-    return minutes<=16 and minutes>=5,minutes
+    return minutes<=30 and minutes>=5,minutes
 
 def CollectionMovie():
-    client = MongoClient("mongodb://localhost:27017")
+    client = MongoClient(MONGO_IP)
     db = client['speech_shadowing']
     return db['Video']
     
@@ -65,7 +70,7 @@ def getDetailMovie(limit):
         q='english padcast',
         part='snippet',
         type='video',
-        maxResults=200).execute()
+        maxResults=70).execute()
     
     video_map = {}
     for i in search_res['items']:
@@ -84,13 +89,19 @@ def getDetailMovie(limit):
     ).execute()
 
     for i in detail_req['items']:
+        
+        video_id = i['id'] 
+        video_title = video_map[video_id]  
+        
         ISO_Duration=i['contentDetails']['duration']
         time_accept,minutes=convertDuration(ISO_Duration)
-        print(time_accept,minutes)
+        
         if time_accept:
             if collection.find_one({"video_id":video_id}):
                 continue
             audio_path=downloadAudio(video_id)
+            if not audio_path:
+                continue
             collection.insert_one({
                 "video_id":video_id,
                 "video_title":video_title,
@@ -98,11 +109,12 @@ def getDetailMovie(limit):
                 "sound":audio_path
             })
             saved_count+=1
+            print(saved_count)
             time.sleep(random.randint(2, 5))
             if saved_count >= limit:
                 break
     
-getDetailMovie(limit=12)
+getDetailMovie(limit=10)
 
 
 
