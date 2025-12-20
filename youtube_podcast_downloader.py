@@ -7,6 +7,9 @@ import time
 from dotenv import load_dotenv
 from googleapiclient.discovery import  build
 from pymongo import MongoClient
+
+
+
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 MONGO_IP = os.getenv("MONGO_IP")
@@ -70,7 +73,7 @@ def getDetailMovie(limit):
         q='english padcast',
         part='snippet',
         type='video',
-        maxResults=70).execute()
+        maxResults=limit).execute()
     
     video_map = {}
     for i in search_res['items']:
@@ -106,7 +109,9 @@ def getDetailMovie(limit):
                 "video_id":video_id,
                 "video_title":video_title,
                 "duration":minutes,
-                "sound":audio_path
+                "sound":audio_path,
+                "heared": False,
+                "created_at": time.time()
             })
             saved_count+=1
             print(saved_count)
