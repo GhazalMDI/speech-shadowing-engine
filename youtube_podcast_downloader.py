@@ -1,6 +1,5 @@
 import os
 import isodate
-import yt_dlp
 import random
 import time
 
@@ -22,6 +21,7 @@ def requestYoutube():
     )
     return youtube
 def downloadAudio(video_id):
+    import yt_dlp
     url = f'https://www.youtube.com/watch?v={video_id}'
     output_path = f'audio/{video_id}.mp3'
     ydl_opts = {
@@ -59,14 +59,15 @@ def convertDuration(ISO):
     minutes = int(parts[1])
     return minutes<=30 and minutes>=5,minutes
 
-def CollectionMovie():
+def getCollection():
     client = MongoClient(MONGO_IP)
     db = client['speech_shadowing']
-    return db['Video']
+    return db
     
 def getDetailMovie(limit):
+    db = getCollection()
     youtube = requestYoutube()           
-    collection = CollectionMovie()
+    collection = db['Movie']
     saved_count = 0
     
     search_res  = youtube.search().list(
@@ -110,7 +111,6 @@ def getDetailMovie(limit):
                 "video_title":video_title,
                 "duration":minutes,
                 "sound":audio_path,
-                "heared": False,
                 "created_at": time.time()
             })
             saved_count+=1
