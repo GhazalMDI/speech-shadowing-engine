@@ -67,7 +67,7 @@ def getCollection():
 def getDetailMovie(limit):
     db = getCollection()
     youtube = requestYoutube()           
-    collection = db['Movie']
+    collection = db['Audio']
     saved_count = 0
     
     search_res  = youtube.search().list(

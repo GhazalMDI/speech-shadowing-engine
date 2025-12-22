@@ -1,8 +1,24 @@
 import traceback
 import schedule
 import time
+from bson import ObjectId
 
 from youtube_podcast_downloader import getCollection,getDetailMovie
+
+
+def getUserInfo(user_id):
+    try:
+        db = getCollection()
+        Collection_user = db["User"]
+        user_info=Collection_user.find_one({"_id":ObjectId(user_id)})
+        if user_info:
+            return user_info
+        return None
+    except Exception as e:
+        print(e)
+
+    
+    
 
 def lastAudioForAllUsers():
     db = getCollection()
