@@ -18,8 +18,6 @@ def getUserInfo(user_id):
         print(e)
 
     
-    
-
 def lastAudioForAllUsers():
     db = getCollection()
     collection = db['User_Audio']
@@ -57,8 +55,8 @@ def agentDecisionDownload():
         print(e)
         traceback.print_exc()
         
-# schedule.every(2).days.at("23:00").do(agentDecisionDownload)
-# while True:
-#     schedule.run_pending()
-#     time.sleep(60)
+schedule.every(2).days.at("23:00").do(agentDecisionDownload)
+while True:
+    schedule.run_pending()
+    time.sleep(60)
 

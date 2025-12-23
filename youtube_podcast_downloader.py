@@ -2,6 +2,7 @@ import os
 import isodate
 import random
 import time
+import requests
 
 from dotenv import load_dotenv
 from googleapiclient.discovery import  build
@@ -12,6 +13,7 @@ from pymongo import MongoClient
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 MONGO_IP = os.getenv("MONGO_IP")
+SPEECH_TEXT_KEY = os.getenv("SPEECH_TEXT_API")
 
 def requestYoutube():
     youtube = build(
@@ -67,7 +69,7 @@ def getCollection():
 def getDetailMovie(limit):
     db = getCollection()
     youtube = requestYoutube()           
-    collection = db['Audio']
+    Audio = db['Audio']
     saved_count = 0
     
     search_res  = youtube.search().list(
@@ -81,7 +83,7 @@ def getDetailMovie(limit):
         video_id = i['id']['videoId']
         video_title = i['snippet']['title']
         
-        if not collection.find_one({"video_id":video_id}):
+        if not Audio.find_one({"video_id":video_id}):
             video_map[video_id]=video_title
     if not video_map:
         print("new video")
@@ -101,12 +103,12 @@ def getDetailMovie(limit):
         time_accept,minutes=convertDuration(ISO_Duration)
         
         if time_accept:
-            if collection.find_one({"video_id":video_id}):
+            if Audio.find_one({"video_id":video_id}):
                 continue
             audio_path=downloadAudio(video_id)
             if not audio_path:
                 continue
-            collection.insert_one({
+            Audio.insert_one({
                 "video_id":video_id,
                 "video_title":video_title,
                 "duration":minutes,
@@ -118,8 +120,44 @@ def getDetailMovie(limit):
             time.sleep(random.randint(2, 5))
             if saved_count >= limit:
                 break
+# getDetailMovie(limit=10)
+
+
+def createTrnscript(audio_path):
+    db = getCollection()
+    audios = db['Audio']
+    audio=audios.find_one({
+        "sound":audio_path
+    })
+    if not audio or "mp3" not in audio["sound"]:
+        return False
     
-getDetailMovie(limit=10)
+    audio_path = audio['sound']
+    
+    url = "https://api.deepgram.com/v1/listen?model=nova-2&language=en&punctuate=true&paragraphs=true&utterances=true&vad_events=true"
+    headers = {
+            "Authorization":f"Token {SPEECH_TEXT_KEY}",
+            "Content-Type": "audio/mpeg"
+    }
+    with open(audio_path,"rb") as audio_file:
+        response =  requests.post(url,headers=headers,data=audio_file)
+        # result = response.json() 
+        # print(result)
+        print(response.status_code)
+        # print(result["results"]["channels"][0]["alternatives"][0]["transcript"])
+
+        # audios.update_one({
+        #     {"_id":audio['_id']},
+        #     {
+        #         "$set":{
+        #             "transcript":transcript_audio
+        #         }
+        #     }
+        # })
+    
+    
+createTrnscript("audio/0Okxsszt624.mp3")
+    
 
 
 
