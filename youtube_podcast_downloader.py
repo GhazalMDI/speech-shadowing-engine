@@ -2,7 +2,8 @@ import os
 import isodate
 import random
 import time
-import requests
+import subprocess
+
 
 from dotenv import load_dotenv
 from googleapiclient.discovery import  build
@@ -14,7 +15,9 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 MONGO_IP = os.getenv("MONGO_IP")
 SPEECH_TEXT_KEY = os.getenv("SPEECH_TEXT_API")
-
+WHISPER_EXE = os.getenv("WHISPER_EXE")
+MODEL_PATH = os.getenv("MODEL_PATH")
+FULL_PATH_AUDIO = r"D:\Machine learning\speech-shadowing-engine"
 def requestYoutube():
     youtube = build(
         "youtube",
@@ -132,31 +135,50 @@ def createTrnscript(audio_path):
     if not audio or "mp3" not in audio["sound"]:
         return False
     
-    audio_path = audio['sound']
-    
-    url = "https://api.deepgram.com/v1/listen?model=nova-2&language=en&punctuate=true&paragraphs=true&utterances=true&vad_events=true"
-    headers = {
-            "Authorization":f"Token {SPEECH_TEXT_KEY}",
-            "Content-Type": "audio/mpeg"
-    }
-    with open(audio_path,"rb") as audio_file:
-        response =  requests.post(url,headers=headers,data=audio_file)
-        # result = response.json() 
-        # print(result)
-        print(response.status_code)
-        # print(result["results"]["channels"][0]["alternatives"][0]["transcript"])
+    audio_file = audio['sound']
+    audio_path = os.path.join(FULL_PATH_AUDIO, audio_file.replace("/", os.sep))
 
-        # audios.update_one({
-        #     {"_id":audio['_id']},
-        #     {
-        #         "$set":{
-        #             "transcript":transcript_audio
-        #         }
-        #     }
-        # })
+    print(audio_path)
+    print(WHISPER_EXE)
+    print(MODEL_PATH)
+    
+    command = [
+        WHISPER_EXE,
+        "-m",MODEL_PATH,
+        "-f",audio_path,
+        "-l","en"
+    ]
     
     
-createTrnscript("audio/0Okxsszt624.mp3")
+    print("start process")
+    
+    
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    for line in process.stdout:
+        print(line, end="") 
+
+    process.wait()
+    print("Process finished")
+    # result = subprocess.run(
+    #     command,capture_output=True,text=True
+    # )
+    # print("start transcript")
+    # transcript=result.stdout
+
+    
+
+    audios.update_one({
+        {"_id":audio['_id']},
+        {
+            "$set":{
+                "transcript":process.stdout
+            }
+        }
+    })
+    
+    
+createTrnscript("audio/vqzqXBSdkYY.mp3")
     
 
 
