@@ -18,6 +18,8 @@ SPEECH_TEXT_KEY = os.getenv("SPEECH_TEXT_API")
 WHISPER_EXE = os.getenv("WHISPER_EXE")
 MODEL_PATH = os.getenv("MODEL_PATH")
 FULL_PATH_AUDIO = r"D:\Machine learning\speech-shadowing-engine"
+
+
 def requestYoutube():
     youtube = build(
         "youtube",
@@ -118,6 +120,7 @@ def getDetailMovie(limit):
                 "sound":audio_path,
                 "created_at": time.time()
             })
+            createTrnscript(audio_path)
             saved_count+=1
             print(saved_count)
             time.sleep(random.randint(2, 5))
@@ -125,57 +128,61 @@ def getDetailMovie(limit):
                 break
 # getDetailMovie(limit=10)
 
-
 def createTrnscript(audio_path):
     db = getCollection()
-    audios = db['Audio']
-    audio=audios.find_one({
-        "sound":audio_path
-    })
-    if not audio or "mp3" not in audio["sound"]:
+    audios = db["Audio"]
+
+    audio = audios.find_one({"sound": audio_path})
+    if not audio or not audio["sound"].endswith(".mp3"):
         return False
-    
-    audio_file = audio['sound']
+
+    audio_file = audio["sound"]
     audio_path = os.path.join(FULL_PATH_AUDIO, audio_file.replace("/", os.sep))
 
-    print(audio_path)
-    print(WHISPER_EXE)
-    print(MODEL_PATH)
-    
+    threads = os.cpu_count()
+
     command = [
         WHISPER_EXE,
-        "-m",MODEL_PATH,
-        "-f",audio_path,
-        "-l","en"
+        "-m", MODEL_PATH,
+        "-f", audio_path,
+        "-l", "en",
+        "--threads", str(threads)
     ]
-    
-    
+
     print("start process")
-    
-    
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    output_lines = []
 
     for line in process.stdout:
-        print(line, end="") 
+        print(line, end="")
+        output_lines.append(line)
 
     process.wait()
     print("Process finished")
-    # result = subprocess.run(
-    #     command,capture_output=True,text=True
-    # )
-    # print("start transcript")
-    # transcript=result.stdout
 
-    
+    clean_lines = [
+        line.split("] ", 1)[1].strip()
+        for line in output_lines
+        if "] " in line
+    ]
 
-    audios.update_one({
-        {"_id":audio['_id']},
-        {
-            "$set":{
-                "transcript":process.stdout
-            }
-        }
-    })
+    transcript = " ".join(clean_lines)
+
+    audios.update_one(
+        {"_id": audio["_id"]},
+        {"$set": {"transcript": transcript}}
+    )
+
+    return transcript
+
+
     
     
 createTrnscript("audio/vqzqXBSdkYY.mp3")
